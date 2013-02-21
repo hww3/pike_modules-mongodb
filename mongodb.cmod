@@ -1,0 +1,192 @@
+/*! @module Database
+ */
+
+/*! @module MongoDB
+ */
+
+#define _GNU_SOURCE
+
+#include "mongodb_config.h"
+#include "util.h"
+
+/*#if HAVE_MONGO_H
+*/
+#include <mongo.h>
+/*#endif*/ /* HAVE_MONGO_H */
+
+extern struct program * MonogDB_program;
+struct program * Collection_program;
+
+mongo * getdb(struct object * db);
+
+DECLARATIONS
+
+/*! @class LowCollection
+ */
+PIKECLASS LowCollection
+flags ID_PROTECTED;
+{
+  DECLARATIONS
+  PIKEVAR object db;
+  PIKEVAR string name;
+
+#define COLL_DB(X) (mongo *)(OBJ2_DB(X))
+#define OBJ2_COLLECTION(X) ((struct LowCollection_struct *)get_storage(X, LowCollection_program))
+#define THISLC ((struct LowCollection_struct *)get_storage(Pike_fp->current_object, LowCollection_program))
+  PIKEFUN void create()
+  {
+
+  }
+  
+  PIKEFUN string _sprintf(mixed format, mixed bar)
+  {
+    push_text("MongoDB.Collection(");
+    push_string(THISLC->name);
+    f_add(2);
+    push_text(")");
+    f_add(2);
+  }
+
+
+  INIT
+  {
+  }
+
+  EXIT
+  {
+    if(THIS->db)
+      free_object(THIS->db);
+  }
+}
+
+/*! @endclass
+ */
+
+/*! @class Database
+ */
+PIKECLASS Database
+{
+
+DECLARATIONS
+CVAR mongo * db;
+
+/*! @decl void create(string dbpath, int flags)
+ */
+PIKEFUN void create(string ip, int port)
+{
+  mongo * db;
+  int status;
+
+  db = malloc(sizeof(mongo));
+  mongo_init(db);
+  mongo_set_op_timeout(db, 2000);
+  status = mongo_client(db, ip->str, port);
+  if( status != MONGO_OK ) 
+  {
+    pop_n_elems(args);
+    switch(db->err)
+    {
+      case MONGO_CONN_NO_SOCKET:  Pike_error( "no socket\n" );
+      case MONGO_CONN_FAIL:       Pike_error( "connection failed\n" );
+      case MONGO_CONN_NOT_MASTER: Pike_error( "not master\n" );
+      default: Pike_error("unknown error.\n");
+    }
+  }
+  
+  pop_n_elems(args);
+  
+  THIS->db = db;
+}
+
+#define OBJ2_COLLECTION(X) ((struct LowCollection_struct *)get_storage(X, LowCollection_program))
+
+void push_coll(char * coll)
+{
+  struct object * c;
+  struct pike_string * name;
+  if(!Collection_program)
+    lookup_collection_program();
+  c = clone_object(Collection_program, 0);
+  name = make_shared_binary_string(coll, strlen(coll));
+  push_string(name);
+  f_utf8_to_string(1);
+  name = Pike_sp[-1].u.string;
+  add_ref(name);
+  pop_stack();
+  OBJ2_COLLECTION(c)->db = this_object();
+  OBJ2_COLLECTION(c)->name = name;
+  add_ref(OBJ2_COLLECTION(c)->db);
+  push_object(c);
+}
+
+void lookup_collection_program()
+{
+  push_text("Database.MongoDB.Collection");
+  SAFE_APPLY_MASTER("resolv", 1 );
+  if(Pike_sp[-1].type != T_PROGRAM)
+  {
+    Pike_error("Unable to load class Database.MongoDB.Collection.\n");
+  }
+  
+  Collection_program = Pike_sp[-1].u.program;
+  add_ref(Collection_program);
+  pop_stack();
+}
+
+INIT
+{
+}
+
+EXIT
+{
+  mongo * db;
+  db = THIS->db;
+  if(db)
+  { 
+    mongo_destroy(db);
+  }
+  
+  if(Collection_program)
+    free_program(Collection_program);
+}
+
+}
+
+/*! @endclass
+ */
+
+ EXTRA
+ {
+ }
+ PIKE_MODULE_INIT
+ {
+   INIT;
+ }
+
+ PIKE_MODULE_EXIT
+ {
+   EXIT;
+ }
+
+ mongo * getdb(struct object * db)
+ {
+    struct Database_struct * _db;
+    _db = (OBJ2_DATABASE(db));
+    return _db->db; 
+ }
+
+ void throw_mongodb_error(struct object * db)
+ {
+   mongo * _db;
+   char * msg;
+   char * msg2;   
+   _db = getdb(db);
+   snprintf(msg2, sizeof(msg2), "Error creating database object: %s\n", msg);
+   Pike_error(msg2);
+ }
+
+ /*! @endmodule
+  */
+
+ /*! @endmodule
+  */

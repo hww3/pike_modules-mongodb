@@ -1,0 +1,19 @@
+# $Id: configure.in,v 1.2 2005-09-22 20:23:20 hww3 Exp $
+AC_INIT(mongodb_config.h.in)
+
+AC_MODULE_INIT()
+AC_CONFIG_HEADERS(mongodb_config.h)
+
+AC_CHECK_HEADERS(mongo.h)
+AC_CHECK_LIB(mongoc, mongo_client) 
+
+CMOD_LIBS="$LDFLAGS -lmongoc"
+CFLAGS="-std=c99 $CPPFLAGS"
+
+# AC_CHECK_FUNCS(xmlNewDocPI) 
+
+AC_SUBST(CFLAGS) 
+AC_SUBST(CMOD_LIBS)
+
+AC_OUTPUT(Makefile)
+

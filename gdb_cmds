@@ -1,0 +1,2 @@
+set args -Mplib/modules -M../public_database_mongodb
+run
