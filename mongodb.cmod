@@ -18,6 +18,9 @@ extern struct program * MonogDB_program;
 struct program * Collection_program;
 
 mongo * getdb(struct object * db);
+void push_coll(struct pike_string * coll);
+void lookup_collection_program();
+void throw_mongodb_error(int ret, struct object * db);
 
 DECLARATIONS
 
@@ -46,7 +49,81 @@ flags ID_PROTECTED;
     push_text(")");
     f_add(2);
   }
+  
+  PIKEFUN int insert(string bson_doc)
+  {
+    bson _bson;
+    int ret = 0;
+    char * ns;
+    mongo * db;
+    int ret2;
+    
+    ns = THIS->name->str; // TODO convert to UTF8.
+    
+    db = getdb(THISLC->db);
+    bson_init_finished_data(&_bson, bson_doc->str);
 
+//    bson_print_raw(bson_data(&_bson), 10);
+    ret = mongo_insert(db, ns, &_bson, NULL);
+
+
+  ret2 = ret;
+  
+    if(ret == MONGO_ERROR && db->err == MONGO_IO_ERROR)
+    {
+      if(mongo_reconnect(db) != MONGO_ERROR)
+      {
+        ret = mongo_insert(db, ns, &_bson, NULL);
+      }
+    }
+    
+    if(ret != MONGO_OK)
+    {
+//      pop_stack();
+      throw_mongodb_error(ret, THISLC->db);
+    }
+  
+//    bson_print_raw(bson_data(&_bson), 10);
+          
+    RETURN ret;
+  }
+
+    PIKEFUN int query(string query_bson)
+    {
+    int ret;
+    char * ns;
+    mongo * db;
+    bson query;
+    mongo_cursor cursor[1];
+    int count = 0;
+    
+    ns = THIS->name->str; // TODO convert to UTF8.
+
+    db = getdb(THISLC->db);
+    bson_init_finished_data(&query, query_bson->str);
+
+    mongo_cursor_init( cursor, db, ns );
+    mongo_cursor_set_query( cursor, &query );
+    pop_n_elems(args);
+    
+    while( mongo_cursor_next( cursor ) == MONGO_OK ) {
+      struct pike_string * bt;
+      const bson * _rb;
+      
+      _rb = mongo_cursor_bson(cursor);
+      
+      bt = make_shared_binary_string(bson_data(_rb), bson_size(_rb));                 
+      push_string(bt);
+      count++;
+    }
+    f_aggregate(count);
+      
+
+
+//    bson_destroy( query );
+    mongo_cursor_destroy( cursor );
+
+    }
 
   INIT
   {
@@ -58,6 +135,8 @@ flags ID_PROTECTED;
       free_object(THIS->db);
   }
 }
+
+
 
 /*! @endclass
  */
@@ -98,23 +177,28 @@ PIKEFUN void create(string ip, int port)
   THIS->db = db;
 }
 
+/*! @decl object get_collection(string name)
+ */
+PIKEFUN object get_collection(string name)
+{  
+  add_ref(name);
+  pop_n_elems(args);
+  push_coll(name);
+  free_string(name);
+  return;
+}
+
 #define OBJ2_COLLECTION(X) ((struct LowCollection_struct *)get_storage(X, LowCollection_program))
 
-void push_coll(char * coll)
+void push_coll(struct pike_string * coll)
 {
   struct object * c;
-  struct pike_string * name;
   if(!Collection_program)
     lookup_collection_program();
   c = clone_object(Collection_program, 0);
-  name = make_shared_binary_string(coll, strlen(coll));
-  push_string(name);
-  f_utf8_to_string(1);
-  name = Pike_sp[-1].u.string;
-  add_ref(name);
-  pop_stack();
+  add_ref(coll);
   OBJ2_COLLECTION(c)->db = this_object();
-  OBJ2_COLLECTION(c)->name = name;
+  OBJ2_COLLECTION(c)->name = coll;
   add_ref(OBJ2_COLLECTION(c)->db);
   push_object(c);
 }
@@ -168,21 +252,68 @@ EXIT
    EXIT;
  }
 
+
+ void throw_mongodb_error(int ret, struct object * db)
+ {
+   mongo * _db;
+   int ecode;
+   char msg2[256];
+   const char * msg;
+
+   _db = getdb(db);
+   
+   printf("ret: %d\n", ret);
+   switch(_db->err)
+   {
+     case MONGO_CONN_NO_SOCKET:    /**< Could not create a socket. */
+       Pike_error("Could not create a socket.\n");
+     case MONGO_CONN_FAIL:         /**< An error occured while calling connect(). */
+       Pike_error("An error occured while calling connect().\n");
+     case MONGO_CONN_ADDR_FAIL:    /**< An error occured while calling getaddrinfo(). */
+       Pike_error("An error occured while calling getaddrinfo().\n");
+     case MONGO_CONN_NOT_MASTER:   /**< Warning: connected to a non-master node (read-only). */
+       Pike_error("Warning: connected to a non-master node (read-only).\n");
+     case MONGO_CONN_BAD_SET_NAME: /**< Given rs name doesn't match this replica set. */
+       Pike_error("Given rs name doesn't match this replica set.\n");
+     case MONGO_CONN_NO_PRIMARY:   /**< Can't find primary in replica set. Connection closed. */
+       Pike_error("Can't find primary in replica set. Connection closed.\n");
+
+     case MONGO_IO_ERROR:          /**< An error occurred while reading or writing on the socket. */
+       Pike_error("An error occurred while reading or writing on the socket.\n");
+     case MONGO_SOCKET_ERROR:      /**< Other socket error. */
+       Pike_error("Other socket error.\n");
+     case MONGO_READ_SIZE_ERROR:   /**< The response is not the expected length. */
+       Pike_error("The response is not the expected length.\n");
+     case MONGO_COMMAND_FAILED:    /**< The command returned with 'ok' value of 0. */
+       Pike_error("The command returned with 'ok' value of 0.\n");
+     case MONGO_WRITE_ERROR:       /**< Write with given write_concern returned an error. */
+       Pike_error("Write with given write_concern returned an error.\n");
+     case MONGO_NS_INVALID:        /**< The name for the ns (database or collection) is invalid. */
+       Pike_error("The name for the ns (database or collection) is invalid.\n");
+     case MONGO_BSON_INVALID:      /**< BSON not valid for the specified op. */
+       Pike_error("BSON not valid for the specified op.\n");
+     case MONGO_BSON_NOT_FINISHED: /**< BSON object has not been finished. */
+       Pike_error("BSON object has not been finished.\n");
+     case MONGO_BSON_TOO_LARGE:    /**< BSON object exceeds max BSON size. */
+       Pike_error("BSON object exceeds max BSON size.\n");
+     case MONGO_WRITE_CONCERN_INVALID: /**< Supplied write concern object is invalid. */
+       Pike_error("Supplied write concern object is invalid.\n");
+     default:
+       Pike_error("unknown error\n");
+     
+   }
+/*
+   msg = mongo_get_server_err_string(_db);
+   printf("mongodb error: %s\n", msg);
+   Pike_error(msg);
+*/
+ }
+
  mongo * getdb(struct object * db)
  {
     struct Database_struct * _db;
     _db = (OBJ2_DATABASE(db));
     return _db->db; 
- }
-
- void throw_mongodb_error(struct object * db)
- {
-   mongo * _db;
-   char * msg;
-   char * msg2;   
-   _db = getdb(db);
-   snprintf(msg2, sizeof(msg2), "Error creating database object: %s\n", msg);
-   Pike_error(msg2);
  }
 
  /*! @endmodule
