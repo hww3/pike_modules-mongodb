@@ -7,4 +7,44 @@ inherit Database.___MongoDB;
 class Collection
 {
   inherit LowCollection;
+
+  //!
+  array find(mapping query)
+  {
+    array res;
+    res = low_find(Standards.BSON.to_document(query, 1));
+    foreach(res; int i; mixed e)
+    {
+      res[i] = Standards.BSON.from_document(e);
+    }
+    return res;
+  }
+  
+  //! @returns object id of inserted object(s)
+  string|array(string) insert(mapping|array(mapping) obj)
+  {
+    if(arrayp(obj))
+    {
+      array saved = ({});
+
+
+      foreach(obj; int i; mapping d)
+      {
+        if(!d->_id)
+           d->_id = Standards.BSON.ObjectId();
+        
+        saved += ({ insert(d) });
+      }
+
+      return saved;
+    }
+    
+    
+    if(!obj->_id)
+      obj->_id = Standards.BSON.ObjectId();
+    if(!insert_bson(Standards.BSON.to_document(obj))) 
+      return (string)(obj->_id);
+    else return 0;
+  }
+  
 }

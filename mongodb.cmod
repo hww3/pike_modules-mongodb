@@ -50,7 +50,7 @@ flags ID_PROTECTED;
     f_add(2);
   }
   
-  PIKEFUN int insert(string bson_doc)
+  PIKEFUN int insert_bson(string bson_doc)
   {
     bson _bson;
     int ret = 0;
@@ -88,7 +88,7 @@ flags ID_PROTECTED;
     RETURN ret;
   }
 
-    PIKEFUN int query(string query_bson)
+    PIKEFUN array low_find(string query_bson)
     {
     int ret;
     char * ns;
