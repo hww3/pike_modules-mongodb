@@ -124,6 +124,44 @@ flags ID_PROTECTED;
           
     RETURN ret;
   }
+  
+   PIKEFUN int create_index_bson(string bson_doc, int flags)
+    {
+      bson _bson;
+      int ret = 0;
+      char * ns;
+      mongo * db;
+      int ret2;
+
+      ns = THIS->name->str; // TODO convert to UTF8.
+
+      db = getdb(THISLC->db);
+      bson_init_finished_data(&_bson, bson_doc->str);
+
+  //    bson_print_raw(bson_data(&_bson), 10);
+      ret = mongo_create_index(db, ns, &_bson, flags, NULL);
+
+
+    ret2 = ret;
+
+      if(ret == MONGO_ERROR && db->err == MONGO_IO_ERROR)
+      {
+        if(mongo_reconnect(db) != MONGO_ERROR)
+        {
+          ret = mongo_insert(db, ns, &_bson, NULL);
+        }
+      }
+
+      if(ret != MONGO_OK)
+      {
+  //      pop_stack();
+        throw_mongodb_error(ret, THISLC->db);
+      }
+
+  //    bson_print_raw(bson_data(&_bson), 10);
+
+      RETURN ret;
+    }
 
     PIKEFUN array low_find(string query_bson)
     {
@@ -293,6 +331,32 @@ EXIT
    *! Index: Multi-object Update operation. 
    */
   add_integer_constant("UPDATE_BASIC", MONGO_UPDATE_BASIC, 0);
+ 
+ 
+  /* INDEX Constants */
+ 
+  /*! @decl constant INDEX_UNIQUE 
+     *! Index: Multi-object Update operation. 
+     */
+    add_integer_constant("INDEX_UNIQUE", MONGO_INDEX_UNIQUE, 0);
+ 
+    /*! @decl constant INDEX_DROP_DUPS 
+       *! Index: Multi-object Update operation. 
+       */
+      add_integer_constant("INDEX_DROP_DUPS", MONGO_INDEX_DROP_DUPS, 0);
+ 
+      /*! @decl constant INDEX_BACKGROUND 
+         *! Index: Multi-object Update operation. 
+         */
+        add_integer_constant("INDEX_BACKGROUND", MONGO_INDEX_BACKGROUND, 0);
+ 
+        /*! @decl constant INDEX_SPARSE 
+           *! Index: Multi-object Update operation. 
+           */
+          add_integer_constant("INDEX_SPARSE", MONGO_INDEX_SPARSE, 0);
+ 
+ 
+ 
  
  }
  PIKE_MODULE_INIT
