@@ -39,12 +39,18 @@ class Collection
       return saved;
     }
     
-    
     if(!obj->_id)
       obj->_id = Standards.BSON.ObjectId();
     if(!insert_bson(Standards.BSON.to_document(obj))) 
       return (string)(obj->_id);
     else return 0;
   }
+  
+  //!
+  int update(mapping condition, mapping operation, int flags)
+  {
+     return update_bson(Standards.BSON.to_document(condition), Standards.BSON.to_document(operation, 1), flags);  
+  }
+  
   
 }

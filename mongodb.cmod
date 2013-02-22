@@ -50,6 +50,43 @@ flags ID_PROTECTED;
     f_add(2);
   }
   
+  PIKEFUN int update_bson(string bson_cond, string bson_op, int flags)
+  {
+    bson _bson_cond;
+    bson _bson_op;
+    int ret = 0;
+    char * ns;
+    mongo * db;
+    int ret2;
+    
+    ns = THIS->name->str; // TODO convert to UTF8.
+    
+    db = getdb(THISLC->db);
+    bson_init_finished_data(&_bson_cond, bson_cond->str);
+    bson_init_finished_data(&_bson_op, bson_op->str);
+    
+    ret = mongo_update(db, ns, &_bson_cond, &_bson_op, flags, NULL);
+    
+    ret2 = ret;
+
+    if(ret == MONGO_ERROR && db->err == MONGO_IO_ERROR)
+    {
+      if(mongo_reconnect(db) != MONGO_ERROR)
+      {
+        ret = mongo_update(db, ns, &_bson_cond, &_bson_op, flags, NULL);
+      }
+    }
+
+    if(ret != MONGO_OK)
+    {
+    //      pop_n_elems(args);
+      throw_mongodb_error(ret, THISLC->db);
+    }
+
+    //    bson_print_raw(bson_data(&_bson), 10);
+    RETURN ret;
+  }
+  
   PIKEFUN int insert_bson(string bson_doc)
   {
     bson _bson;
@@ -241,6 +278,22 @@ EXIT
 
  EXTRA
  {
+ 
+ /*! @decl constant UPDATE_UPSERT 
+  *! Index: Update/Insert operation. 
+  */
+ add_integer_constant("UPDATE_UPSERT", MONGO_UPDATE_UPSERT, 0);
+ 
+ /*! @decl constant UPDATE_MULTI 
+   *! Index: Multi-object Update operation. 
+   */
+  add_integer_constant("UPDATE_MULTI", MONGO_UPDATE_MULTI, 0);
+ 
+ /*! @decl constant UPDATE_MULTI 
+   *! Index: Multi-object Update operation. 
+   */
+  add_integer_constant("UPDATE_BASIC", MONGO_UPDATE_BASIC, 0);
+ 
  }
  PIKE_MODULE_INIT
  {
