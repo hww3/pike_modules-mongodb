@@ -125,6 +125,45 @@ flags ID_PROTECTED;
     RETURN ret;
   }
   
+    PIKEFUN int remove_bson(string bson_doc)
+    {
+      bson _bson;
+      int ret = 0;
+      char * ns;
+      mongo * db;
+      int ret2;
+
+      ns = THIS->name->str; // TODO convert to UTF8.
+
+      db = getdb(THISLC->db);
+      bson_init_finished_data(&_bson, bson_doc->str);
+
+  //    bson_print_raw(bson_data(&_bson), 10);
+      ret = mongo_remove(db, ns, &_bson, NULL);
+
+
+    ret2 = ret;
+
+      if(ret == MONGO_ERROR && db->err == MONGO_IO_ERROR)
+      {
+        if(mongo_reconnect(db) != MONGO_ERROR)
+        {
+          ret = mongo_remove(db, ns, &_bson, NULL);
+        }
+      }
+
+      if(ret != MONGO_OK)
+      {
+  //      pop_stack();
+        throw_mongodb_error(ret, THISLC->db);
+      }
+
+  //    bson_print_raw(bson_data(&_bson), 10);
+
+      RETURN ret;
+    }
+  
+  
    PIKEFUN int create_index_bson(string bson_doc, int flags)
     {
       bson _bson;
@@ -162,7 +201,7 @@ flags ID_PROTECTED;
 
       RETURN ret;
     }
-
+        
     PIKEFUN array low_find(string query_bson)
     {
     int ret;
@@ -338,6 +377,20 @@ PIKEFUN object get_collection(string name)
   push_coll(name);
   free_string(name);
   return;
+}
+
+PIKEFUN int drop_collection(string db, string collection)
+{
+  int status;
+  
+  bson _bson;
+  
+  if(!THIS->db || !(THIS->db->connected))
+    Pike_error("Database not connected yet.\n");
+  
+  status = mongo_cmd_drop_collection(THIS->db, db->str, collection->str, &_bson);
+
+  
 }
 
 PIKEFUN string get_replica_set_name()
