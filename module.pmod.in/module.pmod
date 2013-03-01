@@ -52,6 +52,12 @@ class Collection
      return update_bson(Standards.BSON.to_document(condition), Standards.BSON.to_document(operation, 1), flags);  
   }
   
+  //!
+  int remove(mapping condition)
+  {
+     return update_bson(Standards.BSON.to_document(condition));  
+  }
+  
   //! create index
   int create_index(mapping indexspec, int flags)
   {
