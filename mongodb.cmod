@@ -224,43 +224,128 @@ PIKECLASS Database
 DECLARATIONS
 CVAR mongo * db;
 
-/*! @decl void create(string dbpath, int flags)
+/*! @decl void create(string|void replica_set)
  */
-PIKEFUN void create(string ip, int port)
+
+PIKEFUN void create()
 {
   mongo * db;
   int status;
 
   db = malloc(sizeof(mongo));
   mongo_init(db);
-  mongo_set_op_timeout(db, 2000);
-  status = mongo_client(db, ip->str, port);
-  if( status != MONGO_OK ) 
-  {
-    pop_n_elems(args);
-    switch(db->err)
-    {
-      case MONGO_CONN_NO_SOCKET:  Pike_error( "no socket\n" );
-      case MONGO_CONN_FAIL:       Pike_error( "connection failed\n" );
-      case MONGO_CONN_NOT_MASTER: Pike_error( "not master\n" );
-      default: Pike_error("unknown error.\n");
-    }
-  }
-  
-  pop_n_elems(args);
   
   THIS->db = db;
 }
 
+PIKEFUN void create(string replica_set)
+{
+  mongo * db;
+  int status;
+
+  db = malloc(sizeof(mongo));
+  mongo_replica_set_init(db, replica_set->str);
+  
+  THIS->db = db;
+}
+
+/*! @decl void add_seed(string ip, int port)
+ *!
+ *! add a seed to the replica set connection configuration.
+ *!
+ */
+PIKEFUN void add_seed(string ip, int port)
+{
+  if(THIS->db && (THIS->db->connected))
+    Pike_error("Database already connected.\n");
+  if(THIS->db && !THIS->db->replica_set)
+    Pike_error("Cannot add seed without using replica set name.\n");
+
+  mongo_replica_set_add_seed(THIS->db, ip->str, port);
+  pop_n_elems(args);
+}
+
+/*! @decl void connect(string ip, int port)
+ */
+ PIKEFUN void connect(string ip, int port)
+ {
+   int status;
+
+   if(THIS->db && THIS->db->replica_set)
+     Pike_error("Cannot connect directly when using a replica set.\n");
+
+   if(THIS->db && (THIS->db->connected))
+     Pike_error("Database already connected.\n");
+
+   mongo_set_op_timeout(THIS->db, 2000);
+   status = mongo_client(THIS->db, ip->str, port);
+   if( status != MONGO_OK ) 
+   {
+     pop_n_elems(args);
+     switch(THIS->db->err)
+     {
+       case MONGO_CONN_NO_SOCKET:  Pike_error( "no socket\n" );
+       case MONGO_CONN_FAIL:       Pike_error( "connection failed\n" );
+       case MONGO_CONN_NOT_MASTER: Pike_error( "not master\n" );
+       default: Pike_error("unknown error.\n");
+     }
+   }
+
+   pop_n_elems(args);
+ }
+
+/*! @decl void connect_replica_set()
+ *!
+ *! connect to a replica set, having specified the seeds using @[add_seed()].
+ */
+PIKEFUN void connect_replica_set()
+{
+  int status;
+  
+  if(THIS->db && (THIS->db->connected))
+    Pike_error("Database already connected.\n");
+  
+  if(THIS->db && !THIS->db->replica_set)
+    Pike_error("Cannot connect without specifying a replica set.\n");
+  
+  status = mongo_replica_set_client(THIS->db);
+  
+  if( status != MONGO_OK ) 
+   {
+     pop_n_elems(args);
+     switch(THIS->db->err)
+     {
+       case MONGO_CONN_NO_SOCKET:  Pike_error( "no socket\n" );
+       case MONGO_CONN_FAIL:       Pike_error( "connection failed\n" );
+       case MONGO_CONN_NOT_MASTER: Pike_error( "not master\n" );
+       default: Pike_error("unknown error.\n");
+     }
+   }
+
+   pop_n_elems(args);
+}
+
 /*! @decl object get_collection(string name)
+ *!
  */
 PIKEFUN object get_collection(string name)
 {  
+  if(!THIS->db || !(THIS->db->connected))
+    Pike_error("Database not connected yet.\n");
+    
   add_ref(name);
   pop_n_elems(args);
   push_coll(name);
   free_string(name);
   return;
+}
+
+PIKEFUN string get_replica_set_name()
+{
+  if(!THIS->db || !THIS->db->replica_set)
+    Pike_error("no replica set specified.\n");
+    
+  push_text(THIS->db->replica_set->name);
 }
 
 #define OBJ2_COLLECTION(X) ((struct LowCollection_struct *)get_storage(X, LowCollection_program))
