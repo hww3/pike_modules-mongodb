@@ -139,13 +139,10 @@ flags ID_PROTECTED;
       db = getdb(THISLC->db);
       bson_init_finished_data(&_bson, bson_doc->str);
 
-  //    bson_print_raw(bson_data(&_bson), 10);
       ret = mongo_remove(db, ns, &_bson, NULL);
+      ret2 = ret;
 
-
-    ret2 = ret;
-
-      if(ret == MONGO_ERROR && db->err == MONGO_IO_ERROR)
+      if(ret2 == MONGO_ERROR && db->err == MONGO_IO_ERROR)
       {
         if(mongo_reconnect(db) != MONGO_ERROR)
         {
@@ -155,11 +152,8 @@ flags ID_PROTECTED;
 
       if(ret != MONGO_OK)
       {
-  //      pop_stack();
         throw_mongodb_error(ret, THISLC->db);
       }
-
-  //    bson_print_raw(bson_data(&_bson), 10);
 
       RETURN ret;
     }
@@ -215,11 +209,9 @@ flags ID_PROTECTED;
 
     db = getdb(THISLC->db);
     bson_init_finished_data(&query, query_bson->str);
-
     mongo_cursor_init( cursor, db, ns );
     mongo_cursor_set_query( cursor, &query );
     pop_n_elems(args);
-    
     while( mongo_cursor_next( cursor ) == MONGO_OK ) {
       struct pike_string * bt;
       const bson * _rb;

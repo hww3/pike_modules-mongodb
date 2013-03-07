@@ -80,14 +80,28 @@ class Database
   }
   
   //!
-  mapping list_databases()
+  array list_databases()
   {
-    return run_command("admin", (["listDatabases": 1]));
+    array dnames = ({});
+    mapping d = run_command("admin", (["listDatabases": 1]));
+    return d->databases->name;
   }
     
   //!
-  mapping list_collections(string database)
+  array list_collections(string database)
   {
-    return get_collection(database + ".system.namespaces")->find(([]));
+    array cnames = ({});
+    mapping c = get_collection(database + ".system.namespaces")->find(([]));
+    foreach(c;; mapping cx)
+    {
+      string cn = cx->name;
+      if(!has_prefix(cn, database))
+        continue;
+      if(search(cn, "$") != -1)
+        continue;
+      cnames += ({cn});
+      
+    }
+    return cnames;
   }
 }
