@@ -231,8 +231,6 @@ flags ID_PROTECTED;
       count++;
     }
     f_aggregate(count);
-      
-
 
 //    bson_destroy( query );
     mongo_cursor_destroy( cursor );
@@ -249,8 +247,6 @@ flags ID_PROTECTED;
       free_object(THIS->db);
   }
 }
-
-
 
 /*! @endclass
  */
