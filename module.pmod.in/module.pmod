@@ -70,6 +70,7 @@ class Database
 {
   inherit LowDatabase;
   
+  //!
   mapping run_command(string db, mapping command)
   {
      mixed res;
@@ -77,5 +78,16 @@ class Database
      res = Standards.BSON.from_document(res);
      return res;  
   }
+  
+  //!
+  mapping list_databases()
+  {
+    return run_command("admin", (["listDatabases": 1]));
+  }
     
+  //!
+  mapping list_collections(string database)
+  {
+    return get_collection(database + ".system.namespaces")->find(([]));
+  }
 }
