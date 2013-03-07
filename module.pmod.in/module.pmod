@@ -2,7 +2,8 @@ constant __author = "Bill Welliver <bill@welliver.org>";
 constant __version = "1.0";
 
 // if necessary, inherit the C language module here.
-inherit Database.___MongoDB;
+inherit global.Database.___MongoDB;
+
 
 class Collection
 {
@@ -55,7 +56,7 @@ class Collection
   //!
   int remove(mapping condition)
   {
-     return update_bson(Standards.BSON.to_document(condition));  
+     return remove_bson(Standards.BSON.to_document(condition));  
   }
   
   //! create index
@@ -63,4 +64,18 @@ class Collection
   {
     return create_index_bson(Standards.BSON.to_document(indexspec), flags);      
   }
+}
+
+class Database
+{
+  inherit LowDatabase;
+  
+  mapping run_command(string db, mapping command)
+  {
+     mixed res;
+     res = run_command_bson(db, Standards.BSON.to_document(command, 1));
+     res = Standards.BSON.from_document(res);
+     return res;  
+  }
+    
 }

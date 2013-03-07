@@ -36,6 +36,7 @@ flags ID_PROTECTED;
 #define COLL_DB(X) (mongo *)(OBJ2_DB(X))
 #define OBJ2_COLLECTION(X) ((struct LowCollection_struct *)get_storage(X, LowCollection_program))
 #define THISLC ((struct LowCollection_struct *)get_storage(Pike_fp->current_object, LowCollection_program))
+#define THISLD ((struct LowDatabase_struct *)get_storage(Pike_fp->current_object, LowDatabase_program))
   PIKEFUN void create()
   {
 
@@ -162,8 +163,7 @@ flags ID_PROTECTED;
 
       RETURN ret;
     }
-  
-  
+    
    PIKEFUN int create_index_bson(string bson_doc, int flags)
     {
       bson _bson;
@@ -257,7 +257,8 @@ flags ID_PROTECTED;
 
 /*! @class Database
  */
-PIKECLASS Database
+PIKECLASS LowDatabase
+flags ID_PROTECTED;
 {
 
 DECLARATIONS
@@ -288,36 +289,50 @@ PIKEFUN void create(string replica_set)
   THIS->db = db;
 }
 
-/*! @decl void add_seed(string ip, int port)
+/*! @decl void add_seed(string ip, int|void port)
  *!
  *! add a seed to the replica set connection configuration.
  *!
  */
-PIKEFUN void add_seed(string ip, int port)
+PIKEFUN void add_seed(string ip, int|void port)
 {
+  int prt;
+  
   if(THIS->db && (THIS->db->connected))
     Pike_error("Database already connected.\n");
   if(THIS->db && !THIS->db->replica_set)
     Pike_error("Cannot add seed without using replica set name.\n");
 
-  mongo_replica_set_add_seed(THIS->db, ip->str, port);
+  if(port)
+    prt = port->u.integer;
+  else
+    prt = MONGO_DEFAULT_PORT;
+
+  mongo_replica_set_add_seed(THIS->db, ip->str, prt);
   pop_n_elems(args);
 }
 
-/*! @decl void connect(string ip, int port)
+/*! @decl void connect(string ip, int|void port)
  */
- PIKEFUN void connect(string ip, int port)
+ PIKEFUN void connect(string ip, int|void port)
  {
    int status;
-
+   int prt;
+   
    if(THIS->db && THIS->db->replica_set)
      Pike_error("Cannot connect directly when using a replica set.\n");
 
    if(THIS->db && (THIS->db->connected))
      Pike_error("Database already connected.\n");
 
+
+   if(port)
+     prt = port->u.integer;
+   else
+     prt = MONGO_DEFAULT_PORT;
+
    mongo_set_op_timeout(THIS->db, 2000);
-   status = mongo_client(THIS->db, ip->str, port);
+   status = mongo_client(THIS->db, ip->str, prt);
    if( status != MONGO_OK ) 
    {
      pop_n_elems(args);
@@ -389,15 +404,69 @@ PIKEFUN int drop_collection(string db, string collection)
     Pike_error("Database not connected yet.\n");
   
   status = mongo_cmd_drop_collection(THIS->db, db->str, collection->str, &_bson);
+  
+  pop_n_elems(args);
+  push_int(status);
+}
+
+PIKEFUN int authenticate(string db, string username, string password)
+{
+  int ret;
+
+  if(!THIS->db || !(THIS->db->connected))
+    Pike_error("Database not connected yet.\n");
+
+  ret = mongo_cmd_authenticate(THIS->db, db->str, username->str, password->str);
+  pop_n_elems(args);
+  push_int(ret);
+}
 
   
-}
+  PIKEFUN string run_command_bson(string dbname, string cmdbson)
+  {
+    bson _bson;
+    int ret = 0;
+    mongo * db;
+    char * ns;
+    bson out;
+    struct pike_string * bt;
+    
+    db = THISLD->db;
+    ns = dbname->str; // TODO convert to UTF8.
+
+    if(!THIS->db || !(THIS->db->connected))
+      Pike_error("Database not connected yet.\n");
+    
+    bson_init_finished_data(&_bson, cmdbson->str);
+    
+    ret = mongo_run_command( db, ns, &_bson, &out );
+    if(ret == MONGO_ERROR && db->err == MONGO_IO_ERROR)
+      {
+        if(mongo_reconnect(db) != MONGO_ERROR)
+        {
+          ret = mongo_run_command(db, ns, &_bson, &out);
+        }
+      }
+
+    if(ret != MONGO_OK)
+    {
+ //    printf("retval: %d\n", ret);
+ // printf("res: %s\n", bson_data(&out));
+      Pike_error(mongo_get_server_err_string(db));
+    }
+
+      bt = make_shared_binary_string(bson_data(&out), bson_size(&out));                 
+
+      pop_n_elems(args);
+      
+      push_string(bt);
+  }
 
 PIKEFUN string get_replica_set_name()
 {
   if(!THIS->db || !THIS->db->replica_set)
     Pike_error("no replica set specified.\n");
-    
+
   push_text(THIS->db->replica_set->name);
 }
 
@@ -566,8 +635,8 @@ EXIT
 
  mongo * getdb(struct object * db)
  {
-    struct Database_struct * _db;
-    _db = (OBJ2_DATABASE(db));
+    struct LowDatabase_struct * _db;
+    _db = (OBJ2_LOWDATABASE(db));
     return _db->db; 
  }
 
