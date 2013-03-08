@@ -382,21 +382,9 @@ PIKEFUN object get_collection(string name)
   return;
 }
 
-PIKEFUN int drop_collection(string db, string collection)
-{
-  int status;
-  
-  bson _bson;
-  
-  if(!THIS->db || !(THIS->db->connected))
-    Pike_error("Database not connected yet.\n");
-  
-  status = mongo_cmd_drop_collection(THIS->db, db->str, collection->str, &_bson);
-  
-  pop_n_elems(args);
-  push_int(status);
-}
-
+/*! @decl int authenticate(string db, string username, string password)
+ *!
+ */
 PIKEFUN int authenticate(string db, string username, string password)
 {
   int ret;
@@ -408,7 +396,6 @@ PIKEFUN int authenticate(string db, string username, string password)
   pop_n_elems(args);
   push_int(ret);
 }
-
   
   PIKEFUN string run_command_bson(string dbname, string cmdbson)
   {
@@ -440,7 +427,8 @@ PIKEFUN int authenticate(string db, string username, string password)
     {
  //    printf("retval: %d\n", ret);
  // printf("res: %s\n", bson_data(&out));
-      Pike_error(mongo_get_server_err_string(db));
+ //   printf("err: %d, %d, %s, %d, %s\n", db->err, db->errcode, db->errstr, db->lasterrcode, db->lasterrstr);
+        throw_mongodb_error(ret, Pike_fp->current_object);
     }
 
       bt = make_shared_binary_string(bson_data(&out), bson_size(&out));                 
@@ -450,6 +438,9 @@ PIKEFUN int authenticate(string db, string username, string password)
       push_string(bt);
   }
 
+/*! @decl string get_replica_set_name()
+ *!
+ */
 PIKEFUN string get_replica_set_name()
 {
   if(!THIS->db || !THIS->db->replica_set)
@@ -548,11 +539,7 @@ EXIT
         /*! @decl constant INDEX_SPARSE 
            *! Index: Multi-object Update operation. 
            */
-          add_integer_constant("INDEX_SPARSE", MONGO_INDEX_SPARSE, 0);
- 
- 
- 
- 
+          add_integer_constant("INDEX_SPARSE", MONGO_INDEX_SPARSE, 0);  
  }
  PIKE_MODULE_INIT
  {
@@ -564,7 +551,6 @@ EXIT
    EXIT;
  }
 
-
  void throw_mongodb_error(int ret, struct object * db)
  {
    mongo * _db;
@@ -574,7 +560,7 @@ EXIT
 
    _db = getdb(db);
    
-   printf("ret: %d\n", ret);
+//   printf("ret: %d\n", ret);
    switch(_db->err)
    {
      case MONGO_CONN_NO_SOCKET:    /**< Could not create a socket. */

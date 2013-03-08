@@ -104,4 +104,17 @@ class Database
     }
     return cnames;
   }
+  
+  mixed create_collection(string database, string collection, mapping|void args)
+  {
+    mapping d = run_command(database, (["create": collection]) + (args||([])) );
+    return d;
+  }
+  
+  mixed drop_collection(string database, string collection)
+  {
+    mapping d = run_command(database, (["drop": collection]));
+    return d;
+  }
+  
 }

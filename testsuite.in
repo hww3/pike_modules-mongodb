@@ -14,20 +14,21 @@ test_define_program(db, [[
 
 test_do(add_constant("dbo", db()))
 test_true(objectp(dbo))
-test_true(dbo->db->get_collection("foo"))
+test_true(dbo->db->get_collection("local.foo"))
 test_true(functionp(dbo->db->create_collection))
-test_true(objectp(dbo->db->create_collection("bar")))))
-test_eq(sizeof(dbo->db->get_collections()), 1)
+test_true((dbo->db->create_collection("local", "gazonk")))))
+test_true(sizeof(dbo->db->list_collections("local")))
 test_do([[
-  string oid = dbo->db->get_collection("bar")
-  ->save((["foo": 1, "bar": "2"])); 
+  string oid = dbo->db->get_collection("local.gazonk")
+  ->insert((["foo": 1, "bar": "2"])); 
   dbo->oid = oid;
   return oid;
   ]])
+  test_true((dbo->db->drop_collection("local", "gazonk")))))
 test_true(stringp(dbo->oid))
-test_true(mappingp(dbo->db->get_collection("bar")->load(dbo->oid)))
+test_true(arrayp(dbo->db->get_collection("local.gazonk")->find((["_id": Standards.BSON.ObjectId(dbo->oid)]))))
 test_true([[
-  mapping x = dbo->db->get_collection("bar")->load(dbo->oid);
+  mapping x = dbo->db->get_collection("local.gazonk")->find((["_id": Standards.BSON.ObjectId(dbo->oid)]));
   m_delete(x, "_id");
   return equal(x, (["foo": 1, "bar": "2"]));
  ]])
