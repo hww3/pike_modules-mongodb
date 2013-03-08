@@ -1,0 +1,5 @@
+- support for write concerns
+- include driver source in module
+- re-authenticate on reconnect
+- support for more commands
+- ssl support?
