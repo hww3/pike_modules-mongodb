@@ -13,10 +13,10 @@ class Collection
   array find(mapping query)
   {
     array res;
-    res = low_find(Standards.BSON.to_document(query, 1));
+    res = low_find(Standards.BSON.encode(query, 1));
     foreach(res; int i; mixed e)
     {
-      res[i] = Standards.BSON.from_document(e);
+      res[i] = Standards.BSON.decode(e);
     }
     return res;
   }
@@ -42,7 +42,7 @@ class Collection
     
     if(!obj->_id)
       obj->_id = Standards.BSON.ObjectId();
-    if(!insert_bson(Standards.BSON.to_document(obj))) 
+    if(!insert_bson(Standards.BSON.encode(obj))) 
       return (string)(obj->_id);
     else return 0;
   }
@@ -50,19 +50,19 @@ class Collection
   //!
   int update(mapping condition, mapping operation, int flags)
   {
-     return update_bson(Standards.BSON.to_document(condition), Standards.BSON.to_document(operation, 1), flags);  
+     return update_bson(Standards.BSON.encode(condition), Standards.BSON.encode(operation, 1), flags);  
   }
   
   //!
   int remove(mapping condition)
   {
-     return remove_bson(Standards.BSON.to_document(condition));  
+     return remove_bson(Standards.BSON.encode(condition));  
   }
   
   //! create index
   int create_index(mapping indexspec, int flags)
   {
-    return create_index_bson(Standards.BSON.to_document(indexspec), flags);      
+    return create_index_bson(Standards.BSON.encode(indexspec), flags);      
   }
 }
 
@@ -74,8 +74,8 @@ class Database
   mapping run_command(string db, mapping command)
   {
      mixed res;
-     res = run_command_bson(db, Standards.BSON.to_document(command, 1));
-     res = Standards.BSON.from_document(res);
+     res = run_command_bson(db, Standards.BSON.encode(command, 1));
+     res = Standards.BSON.decode(res);
      return res;  
   }
   
