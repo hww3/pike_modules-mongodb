@@ -1,2 +1,5 @@
 This is a module that provides access to MongoDB. For information about MongoDB, visit
 http://www.mongodb.org/.
+
+This module uses the mongodb-c-driver library. For more details and to download the 
+driver, please visit https://github.com/mongodb/mongo-c-driver/.
