@@ -43,7 +43,7 @@ CONFIG_HEADERS=@CONFIG_HEADERS@
 @dynamic_module_makefile@
 @dependencies@
 
-pmar:  
+pmar:  $(PIKE_EXTERNAL_MODULE)
 	mkdir ${MODULE_DIR_NAME}-1.${MIN}
 	mkdir ${MODULE_DIR_NAME}-1.${MIN}/MODULE
 	mkdir ${MODULE_DIR_NAME}-1.${MIN}/SCRIPTS
@@ -56,6 +56,7 @@ pmar:
 	elif test "x${PLATFORM}" != "x" ; then \
 	  echo "PLATFORM=${PLATFORM}" >> ${MODULE_DIR_NAME}-1.${MIN}/METADATA.TXT ; \
 	  echo "PLATFORM IS ${PLATFORM}"; \
+	  cp *.dll ${MODULE_DIR_NAME}-1.${MIN} ; \
         else \
         echo "No PLATFORM SPECIFIED" ; \
         exit 1; \
